@@ -1,13 +1,16 @@
 package beyond.orderSystem.ordering.service;
 
+import beyond.orderSystem.common.service.StockInventoryService;
 import beyond.orderSystem.member.domain.Member;
 import beyond.orderSystem.member.repository.MemberRepository;
+import beyond.orderSystem.ordering.controller.SseController;
 import beyond.orderSystem.ordering.domain.OrderDetail;
 import beyond.orderSystem.ordering.domain.OrderStatus;
 import beyond.orderSystem.ordering.domain.Ordering;
 import beyond.orderSystem.ordering.dto.OrderDeleteResDto;
 import beyond.orderSystem.ordering.dto.OrderListResDto;
 import beyond.orderSystem.ordering.dto.OrderSaveReqDto;
+import beyond.orderSystem.ordering.dto.StockDecreaseEvent;
 import beyond.orderSystem.ordering.repository.OrderDetailRepository;
 import beyond.orderSystem.ordering.repository.OrderingRepository;
 import beyond.orderSystem.product.domain.Product;
@@ -30,13 +33,19 @@ public class OrderingService {
     private final MemberRepository memberRepository;
     private final ProductRepository productRepository;
     private final OrderDetailRepository orderDetailRepository;
+    private final StockInventoryService stockInventoryService;
+    private final StockDecreaseEventHandler stockDecreaseEventHandler;
+    private final SseController sseController;
 
     @Autowired
-    public OrderingService(OrderingRepository orderingRepository, MemberRepository memberRepository, ProductRepository productRepository, OrderDetailRepository orderDetailRepository) {
+    public OrderingService(OrderingRepository orderingRepository, MemberRepository memberRepository, ProductRepository productRepository, OrderDetailRepository orderDetailRepository, StockInventoryService stockInventoryService, StockDecreaseEventHandler stockDecreaseEventHandler, SseController sseController) {
         this.orderingRepository = orderingRepository;
         this.memberRepository = memberRepository;
         this.productRepository = productRepository;
         this.orderDetailRepository = orderDetailRepository;
+        this.stockInventoryService = stockInventoryService;
+        this.stockDecreaseEventHandler = stockDecreaseEventHandler;
+        this.sseController = sseController;
     }
 
 //    public Ordering orderCreate(OrderSaveReqDto dto){
@@ -107,6 +116,7 @@ public class OrderingService {
 //
 //    }
 
+    // syncronized를 설정한다 하더라도, 재고 감소가 DB에 반영되는 시점은 트랜잭션이 커밋되고 종료되는 시점
     public Ordering orderCreate(List<OrderSaveReqDto> dtos){
         // Member member = memberRepository.findById(dto.getMemberId()).orElseThrow(()-> new EntityNotFoundException("member is not found"));
 
@@ -120,11 +130,23 @@ public class OrderingService {
         for(OrderSaveReqDto dto : dtos){
             Product product = productRepository.findById(dto.getProductId()).orElseThrow(()-> new EntityNotFoundException("product is not found"));
             int quantity = dto.getProductCount();
-            if(quantity > product.getStockQuantity()){
-                throw new IllegalArgumentException(product.getName() + "의 재고가 부족합니다. 현재 재고: " + product.getStockQuantity());
-            }
-            product.updateQuantity(quantity); // 변경감지(dirty checking)로 인해 별도의 save 불필요
+            if(product.getName().contains("sale")){
 
+                // redis를 통한 재고관리 및 재고잔량 확인
+                int newQuantity = stockInventoryService.decreaseStock(dto.getProductId(), dto.getProductCount()).intValue();
+                if( newQuantity < 0 ){
+                    throw new IllegalArgumentException("재고 부족");
+                }
+
+                // rdb에 재고를 업데이트, rabbitmq를 통해 비동기적으로 이벤트 처리.
+                stockDecreaseEventHandler.publish(new StockDecreaseEvent(product.getId(), dto.getProductCount())); // product.getId(), dto.getProductCount() 이걸 JSON 객체로 넘겨줘야 함
+
+            }else {
+                if(quantity > product.getStockQuantity()){
+                    throw new IllegalArgumentException(product.getName() + "의 재고가 부족합니다. 현재 재고: " + product.getStockQuantity());
+                }
+                product.updateQuantity(quantity); // 변경감지(dirty checking)로 인해 별도의 save 불필요
+            }
             OrderDetail orderDetail = OrderDetail.builder()
                     .product(product)
                     .ordering(ordering)
@@ -134,6 +156,7 @@ public class OrderingService {
         }
 
         Ordering savedOrdering = orderingRepository.save(ordering);
+        sseController.publishMessage( savedOrdering.fromEntity(), "admin@test.com");
         return savedOrdering;
     }
 

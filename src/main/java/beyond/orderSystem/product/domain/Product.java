@@ -39,7 +39,7 @@ public class Product extends BaseTimeEntity {
                 .name(this.name)
                 .category(this.category)
                 .price(this.price)
-                .storckQuantity(this.stockQuantity)
+                .stockQuantity(this.stockQuantity)
                 .imagePath(this.imagePath)
                 .build();
     }

@@ -40,7 +40,7 @@ public class OrderingController {
     }
 
     // 내 주문만 볼 수 있는 myOrders : order/myorders
-    @PreAuthorize("hasRole('USER')")
+    // @PreAuthorize("hasRole('USER')")
     @GetMapping("/order/myorders")
     public ResponseEntity<?> myOrders(){
         List<OrderListResDto> ordering = orderService.myOrders();
@@ -56,5 +56,7 @@ public class OrderingController {
         CommonResDto commonResDto = new CommonResDto(HttpStatus.CREATED, "주문 취소 완료", ordering.getId());
         return new ResponseEntity<>(commonResDto, HttpStatus.CREATED );
     }
+
+
 
 }

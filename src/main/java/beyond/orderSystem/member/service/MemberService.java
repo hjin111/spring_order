@@ -4,6 +4,7 @@ import beyond.orderSystem.member.domain.Member;
 import beyond.orderSystem.member.dto.MemberLoginDto;
 import beyond.orderSystem.member.dto.MemberSaveReqDto;
 import beyond.orderSystem.member.dto.MemberResDto;
+import beyond.orderSystem.member.dto.ResetPassWordDto;
 import beyond.orderSystem.member.repository.MemberRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -36,7 +37,7 @@ public class MemberService {
         if(memberRepository.findByEmail(dto.getEmail()).isPresent()){
             throw new IllegalArgumentException("이미 존재하는 email 입니다.");
         };
-
+        
         Member member = memberRepository.save(dto.toEntity(passwordEncoder.encode(dto.getPassword())));
         return member;
     }
@@ -46,6 +47,7 @@ public class MemberService {
         Page<MemberResDto> memberResDtos = members.map( a -> a.fromEntity());
         return memberResDtos;
         // return members.map( a -> a.fromEntity());
+
     }
 
     public MemberResDto myInfo(){
@@ -68,6 +70,19 @@ public class MemberService {
         }
 
         return member;
+
+    }
+
+    public void resetPassword(ResetPassWordDto dto){
+
+        // email 존재여부 check
+        Member member = memberRepository.findByEmail(dto.getEmail()).orElseThrow(()-> new EntityNotFoundException("존재하지 않는 email 입니다."));
+        // password 일치여부
+        if(!passwordEncoder.matches(dto.getAsIsPassword(), member.getPassword())){
+            throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
+        }
+
+        member.updatePassword(passwordEncoder.encode(dto.getToBePassword()));
 
     }
 

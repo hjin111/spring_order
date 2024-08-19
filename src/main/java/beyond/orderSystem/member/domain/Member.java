@@ -3,9 +3,11 @@ package beyond.orderSystem.member.domain;
 import beyond.orderSystem.common.domain.Address;
 import beyond.orderSystem.common.domain.BaseTimeEntity;
 import beyond.orderSystem.member.dto.MemberResDto;
+import beyond.orderSystem.ordering.domain.Ordering;
 import lombok.*;
 
 import javax.persistence.*;
+import java.util.List;
 
 
 @Entity
@@ -27,6 +29,9 @@ public class Member extends BaseTimeEntity {
     @Embedded //
     private Address address;
 
+    @OneToMany(mappedBy = "member", fetch = FetchType.LAZY)
+    private List<Ordering> orderList;
+
     @Enumerated(EnumType.STRING) // 이거 안하면 숫자로 들어감
     @Builder.Default
     private Role role = Role.USER;
@@ -37,7 +42,12 @@ public class Member extends BaseTimeEntity {
                         .name(this.name)
                         .email(this.email)
                         .address(this.address)
+                        .orderCount(this.orderList.size())
                 .build();
+    }
+
+    public void updatePassword(String password){
+        this.password = password;
     }
 
 }
