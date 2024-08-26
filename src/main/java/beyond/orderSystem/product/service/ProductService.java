@@ -58,8 +58,8 @@ public class ProductService {
 
             product = productRepository.save(dto.toEntity());
             byte[] bytes = image.getBytes();
-            Path path = Paths.get("C:/Users/Playdata/Desktop/tmp/",
-                    product.getId() + "_" + image.getOriginalFilename());
+            String fileName = product.getId() + "_" + image.getOriginalFilename();
+            Path path = Paths.get("/tmp/", fileName);
             Files.write(path, bytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE );
             product.updateImagePath(path.toString());
 
