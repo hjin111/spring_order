@@ -20,4 +20,4 @@ jobs:
           username: ${{secrets.DOCKER_EMAIL}}
           pssword: ${{secrets.DOCKER_PASSWORD}}
       - name: push to dockerhub
-      run docker -push hj0311/ordersystem:latest
+        run: docker -push hj0311/ordersystem:latest
