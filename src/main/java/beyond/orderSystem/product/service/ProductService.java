@@ -68,7 +68,7 @@ public class ProductService {
             }
 
         }catch (IOException e){
-            throw new RuntimeException("이미지 저장 실패");
+            throw new RuntimeException("이미지 저장 실패!");
         }
 
         return product;
